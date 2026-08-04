@@ -10,9 +10,13 @@ a glance away on your home screen.
 |:---:|:---:|
 | <img src="docs/01-home.png" width="260"> | <img src="docs/03-timetable.png" width="260"> |
 
-**On your home screen** — a timeline widget for each direction (there's a compact next-bus card widget too):
+### 🏠 Home-screen widgets
 
-<img src="docs/widgets.png" width="520">
+| Next bus | Timeline |
+|:---:|:---:|
+| <img src="docs/widget-nextbus.png" width="360"> | <img src="docs/widget-timeline.png" width="360"> |
+
+The **Next bus** widget shows both directions at a glance and resizes down to a single line; the **Timeline** widget plots the upcoming departures with a live bus marker. Tap either to open the app.
 
 ## 📥 Download & install
 
