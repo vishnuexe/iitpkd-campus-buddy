@@ -6,9 +6,13 @@ a glance away on your home screen.
 
 ## 📸 Screenshots
 
-| Home | Widgets | Full timetable |
-|:---:|:---:|:---:|
-| <img src="docs/01-home.png" width="240"> | <img src="docs/02-widget.png" width="240"> | <img src="docs/03-timetable.png" width="240"> |
+| The app | Full timetable |
+|:---:|:---:|
+| <img src="docs/01-home.png" width="260"> | <img src="docs/03-timetable.png" width="260"> |
+
+**On your home screen** — a timeline widget for each direction (there's a compact next-bus card widget too):
+
+<img src="docs/widgets.png" width="520">
 
 ## 📥 Download & install
 
