@@ -4,6 +4,14 @@ A tiny Android app **+ home-screen widgets** for the **IIT Palakkad Nila ↔ Sah
 shuttle. See the next bus each way with a live countdown, browse the full timetable, and keep it all
 a glance away on your home screen.
 
+## 💻 Use it on the web (desktop too)
+
+No install needed — open the web app in any browser:
+
+### 👉 **https://vishnuexe.github.io/iitpkd-campus-buddy/**
+
+Same next-bus cards, live timelines and full timetable. On desktop Chrome/Edge, click the **Install** icon in the address bar to pin it as an app; on phones use **Add to Home Screen**. It works offline once opened.
+
 ## 📸 Screenshots
 
 | The app | Full timetable |

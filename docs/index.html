@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Campus Buddy · IITPKD Bus</title>
+<meta name="description" content="Next IIT Palakkad Nila ↔ Sahyadri shuttle, with the full timetable. Works offline." />
+<meta name="theme-color" content="#FB7A18" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="favicon.png" type="image/png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<style>
+  :root{
+    --bg:#121317; --surface:#1c1e24; --surface2:#262932;
+    --on:#e8e9ed; --muted:#b7bacc; --dim:#8c90a0;
+    --accent:#FFB300; --line:#4d4f58; --special1:#7C4DFF; --special2:#EC4899;
+    --card-tint:rgba(255,179,0,.16);
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --surface:#fff; --surface2:#e6e8ee;
+    --on:#1a1c20; --muted:#565a66; --dim:#6a6e7a; --line:#c4c8d2;
+    --card-tint:rgba(255,179,0,.14);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f6f7f9; --surface:#fff; --surface2:#e6e8ee;
+      --on:#1a1c20; --muted:#565a66; --dim:#6a6e7a; --line:#c4c8d2;
+      --card-tint:rgba(255,179,0,.14);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--on);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.4}
+  .wrap{max-width:760px;margin:0 auto;padding:22px 16px 48px}
+  header{display:flex;align-items:flex-start;gap:12px;margin-bottom:20px}
+  header .app-ic{width:46px;height:46px;border-radius:12px;flex:none}
+  header h1{font-size:1.5rem;margin:0;font-weight:700}
+  header .sub{color:var(--muted);font-size:.9rem}
+  header .clock{margin-left:auto;color:var(--dim);font-size:.85rem;white-space:nowrap;padding-top:6px}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:560px){.cards{grid-template-columns:1fr}}
+  .wcard{background:var(--surface);border-radius:20px;padding:16px 16px 14px;
+    background-image:linear-gradient(135deg,var(--card-tint),transparent 60%)}
+  .wc-head{display:flex;align-items:center;gap:8px}
+  .wc-dir{font-weight:700}
+  .wc-now{margin-left:auto;color:var(--dim);font-size:.8rem}
+  .wc-next{margin:8px 0 4px;color:var(--accent);font-weight:600;font-size:.95rem}
+  .wc-next b{font-weight:800}
+  .wc-foot{margin-top:8px;font-size:.78rem}
+  .muted{color:var(--dim)}
+
+  .timeline{position:relative;height:62px;margin-top:6px}
+  .tl-track{position:relative;height:100%}
+  .tl-line{position:absolute;left:6%;right:6%;top:38%;height:2px;
+    background:linear-gradient(90deg,transparent,var(--line) 12%,var(--line) 88%,transparent)}
+  .tl-dot{position:absolute;top:38%;width:7px;height:7px;border-radius:50%;
+    background:var(--dim);transform:translate(-50%,-50%)}
+  .tl-dot.next{width:12px;height:12px;background:var(--accent)}
+  .tl-lab{position:absolute;top:58%;transform:translateX(-50%);
+    font-size:.62rem;color:var(--muted);white-space:nowrap}
+  .tl-lab.next{color:var(--accent);font-weight:700}
+  .tl-bus{position:absolute;top:8%;transform:translate(-50%,0) scaleX(-1);font-size:1rem}
+  .tl-empty{padding:18px 0;text-align:center}
+
+  section{margin-top:30px}
+  .row-between{display:flex;align-items:center;gap:10px}
+  h2{font-size:1.15rem;margin:0}
+  .tabs{display:flex;gap:8px;margin-top:12px;flex-wrap:nowrap;overflow-x:auto}
+  .tab{flex:1;min-width:0;text-align:center;padding:9px 6px;border-radius:999px;
+    background:var(--surface2);color:var(--on);border:0;font:inherit;font-size:.82rem;
+    cursor:pointer;white-space:nowrap}
+  .tab.sel{background:var(--accent);color:#111;font-weight:700}
+
+  .tt-dir{font-size:.95rem;margin:16px 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;
+    background:var(--accent);color:#111;font-size:.8rem;font-weight:600}
+  .chip.past{background:var(--surface2);color:var(--dim);font-weight:500}
+  .chip.special{background:linear-gradient(90deg,var(--special1),var(--special2));color:#fff;cursor:pointer}
+  .busico{width:13px;height:13px;display:block}
+
+  .settings{margin-top:30px;background:var(--surface);border-radius:20px;padding:18px}
+  .settings h2{font-size:1rem;margin-bottom:12px}
+  .set-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}
+  .set-row .lab{min-width:96px;color:var(--muted);font-size:.9rem}
+  .seg{display:flex;gap:6px}
+  .seg button{padding:7px 14px;border-radius:999px;border:0;background:var(--surface2);
+    color:var(--on);font:inherit;font-size:.82rem;cursor:pointer}
+  .seg button.sel{background:var(--accent);color:#111;font-weight:700}
+  .dots{display:flex;gap:12px}
+  .dots button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+  .dots button.sel{border-color:var(--on)}
+  .switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+  .switch input{width:38px;height:22px;appearance:none;background:var(--surface2);
+    border-radius:999px;position:relative;cursor:pointer;outline:none}
+  .switch input:checked{background:var(--accent)}
+  .switch input::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;
+    border-radius:50%;background:#fff;transition:transform .15s}
+  .switch input:checked::after{transform:translateX(16px)}
+
+  footer{margin-top:34px;text-align:center;color:var(--dim);font-size:.85rem}
+  footer a{color:var(--accent);text-decoration:none}
+
+  dialog{border:0;border-radius:18px;background:var(--surface);color:var(--on);
+    max-width:440px;padding:22px}
+  dialog::backdrop{background:rgba(0,0,0,.55)}
+  #dlg-title{margin:0 0 8px;font-size:1.05rem}
+  #dlg-body{color:var(--muted);font-size:.92rem}
+  #dlg-close{margin-top:16px;padding:8px 16px;border:0;border-radius:999px;
+    background:var(--accent);color:#111;font:inherit;font-weight:700;cursor:pointer;float:right}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img class="app-ic" src="icon-192.png" alt="" />
+    <div>
+      <h1>Campus Bus</h1>
+      <div class="sub">IIT Palakkad · Nila ↔ Sahyadri</div>
+    </div>
+    <div class="clock" id="clock">–</div>
+  </header>
+
+  <div class="cards" id="cards"></div>
+
+  <section>
+    <div class="row-between"><h2>Full timetable</h2></div>
+    <div class="tabs">
+      <button class="tab" data-day-opt="today">Today</button>
+      <button class="tab" data-day-opt="working">Working</button>
+      <button class="tab" data-day-opt="saturday">Sat/Hol</button>
+      <button class="tab" data-day-opt="sunday">Sunday</button>
+    </div>
+    <div id="timetable"></div>
+  </section>
+
+  <div class="settings">
+    <h2>Settings</h2>
+    <div class="set-row">
+      <span class="lab">Theme</span>
+      <div class="seg">
+        <button data-theme-opt="system">System</button>
+        <button data-theme-opt="light">Light</button>
+        <button data-theme-opt="dark">Dark</button>
+      </div>
+    </div>
+    <div class="set-row">
+      <span class="lab">Accent</span>
+      <div class="dots">
+        <button data-accent-opt="amber" aria-label="Amber"></button>
+        <button data-accent-opt="teal" aria-label="Teal"></button>
+        <button data-accent-opt="violet" aria-label="Violet"></button>
+        <button data-accent-opt="rose" aria-label="Rose"></button>
+        <button data-accent-opt="emerald" aria-label="Emerald"></button>
+      </div>
+    </div>
+    <div class="set-row">
+      <span class="lab">Holiday today</span>
+      <label class="switch"><input type="checkbox" id="holiday" /></label>
+      <span class="muted" style="font-size:.82rem">Use the reduced Saturday/holiday timetable</span>
+    </div>
+  </div>
+
+  <footer>
+    Timetable effective <span id="eff"></span> ·
+    <a href="https://github.com/vishnuexe/iitpkd-campus-buddy/releases/latest">Get the Android app</a><br />
+    <span class="muted">Add to Home Screen / Install for a one-tap app. Works offline.</span>
+  </footer>
+</div>
+
+<dialog id="dlg">
+  <h3 id="dlg-title"></h3>
+  <p id="dlg-body"></p>
+  <button id="dlg-close">Close</button>
+</dialog>
+
+<script src="schedule.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
