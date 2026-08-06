@@ -5,6 +5,35 @@
 (function () {
   "use strict";
 
+  // ---- installability (Add to Home Screen / desktop install) ---------------
+  var deferredPrompt = null;
+  function isStandalone() {
+    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  }
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    var bar = document.getElementById("installbar");
+    if (bar && !isStandalone()) bar.hidden = false;
+  });
+  window.addEventListener("appinstalled", function () {
+    deferredPrompt = null;
+    var bar = document.getElementById("installbar");
+    if (bar) bar.hidden = true;
+  });
+  function initInstall() {
+    var btn = document.getElementById("install");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () {
+        deferredPrompt = null;
+        document.getElementById("installbar").hidden = true;
+      });
+    });
+  }
+
   var CUTOVER_HOUR = 4; // buses run past midnight; <4am belongs to previous service day
   var DIRS = [
     { id: "NILA_TO_SAHYADRI", key: "nilaToSahyadri", label: "Nila → Sahyadri" },
@@ -257,6 +286,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     applyTheme();
     initControls();
+    initInstall();
     render();
     setInterval(render, 15000); // keep countdowns live
     document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });

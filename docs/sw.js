@@ -1,5 +1,5 @@
 /* Offline cache for Campus Buddy. Bump CACHE when any asset changes. */
-var CACHE = "campus-buddy-v1";
+var CACHE = "campus-buddy-v2";
 var ASSETS = [
   ".", "index.html", "app.js", "schedule.js", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "favicon.png",
