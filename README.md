@@ -1,8 +1,9 @@
 # 🚌🍽️ IITPKD Campus Buddy
 
 A tiny Android app **+ home-screen widgets** for **IIT Palakkad** — the **Nila ↔ Sahyadri** campus
-shuttle and the **mess menu**. See the next bus each way with a live countdown, check what's for lunch,
-and keep it all a glance away on your home screen.
+shuttle, the **mess menu** and the **academic calendar**. See the next bus each way with a live
+countdown, check what's for lunch, count down to the next holiday, and keep it all a glance away on
+your home screen.
 
 ## 💻 Use it on the web (desktop too)
 
@@ -24,9 +25,9 @@ Same next-bus cards, live timelines and full timetable. On desktop Chrome/Edge, 
 |:---:|:---:|
 | <img src="docs/widget-nextbus.png" width="360"> | <img src="docs/widget-timeline.png" width="360"> |
 
-Three widgets in all: the **Next bus** card (both directions, resizes down to a single line), the
-**Timeline** widget with a live bus marker, and a **Mess menu** widget showing today's meals. Tap any
-to open the app.
+Four widgets in all: the **Next bus** card (both directions, resizes down to a single line), the
+**Timeline** widget with a live bus marker, a **Mess menu** widget showing today's meals, and an
+**Upcoming Holidays** widget with the days left. Tap any to open the app.
 
 ## 📥 Download & install
 
@@ -42,12 +43,20 @@ to open the app.
 - **Next bus, both directions**, with a live "in X min" countdown.
 - **Mess menu** tab — today's **Nila Mess** breakfast / lunch / tea / dinner, browsable for any day
   of the week (Kedaram Mess coming soon).
-- **Three home-screen widgets:**
+- **Academic calendar** tab — the 2026 calendar as a list (exams with slot-wise dates, deadlines,
+  vacations, meetings) with filters, plus all gazetted holidays.
+- **Holiday-aware bus timings** — gazetted holidays switch to the Saturday/holiday timetable
+  automatically; "mark today as a holiday" resets itself the next day.
+- **Four home-screen widgets:**
   - a compact **next-bus** card (resizes down to a single line),
-  - a **timeline** widget with a moving bus marker, and
-  - a **mess-menu** widget showing today's meals.
+  - a **timeline** widget with a moving bus marker, showing the "going outside" buses too,
+  - a **mess-menu** widget showing today's meals, and
+  - an **upcoming-holidays** widget with the days left (a list, or a slim one-row strip).
 
-  Add any of them straight from inside the app in one tap.
+  Add any of them straight from inside the app in one tap. They size their text to fit any screen
+  and font-size setting.
+- **Holiday greetings** — on a holiday the app wishes you and, if you like, wears the holiday's colour.
+- **Update notice** — the app and widgets tell you when a newer version is on GitHub.
 - **Full timetable** with a **Today / Working / Sat-Holiday / Sunday** switch.
 - **"Going outside" trips** (Palakkad Town / Wise Park Junction) highlighted with their own gradient.
 - **Light / dark / system theme** and an **accent-colour** picker — applies to the app *and* the widgets.
