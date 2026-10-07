@@ -1,6 +1,6 @@
 {
   "name": "IITPKD Campus Buddy",
-  "short_name": "Campus Bus",
+  "short_name": "Campus Buddy",
   "description": "Next IIT Palakkad Nila ↔ Sahyadri shuttle, the full timetable, the mess menu, the academic calendar and upcoming holidays.",
   "related_applications": [
     { "platform": "webapp", "url": "https://vishnuexe.github.io/iitpkd-campus-buddy/manifest.webmanifest" }

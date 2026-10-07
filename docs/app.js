@@ -44,6 +44,8 @@
   window.addEventListener("appinstalled", markInstalled);
   function initInstall() {
     if (isStandalone()) markInstalled();
+    // ✕ hides the bar for good, whatever the browser thinks about installation.
+    document.getElementById("install-close").addEventListener("click", markInstalled);
     var btn = document.getElementById("install");
     if (!btn) return;
     btn.addEventListener("click", function () {
@@ -612,6 +614,13 @@
     showPage({ "#cal": "calendar", "#mess": "mess" }[location.hash] || "bus"); // #cal / #mess deep-link
     setInterval(render, 15000); // keep countdowns live
     document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+    if ("serviceWorker" in navigator) {
+      // When a newer version of the app takes over, reload once so it shows straight away.
+      var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (hadController && !reloaded) { reloaded = true; location.reload(); }
+      });
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
   });
 })();

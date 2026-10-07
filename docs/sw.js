@@ -1,5 +1,5 @@
-/* Offline cache for Campus Buddy. Bump CACHE when any asset changes. */
-var CACHE = "campus-buddy-v4";
+/* Offline cache for Campus Buddy. Bump CACHE when the asset list changes. */
+var CACHE = "campus-buddy-v5";
 var ASSETS = [
   ".", "index.html", "app.js", "schedule.js", "calendar.js", "mess.js", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "favicon.png",
@@ -14,12 +14,17 @@ self.addEventListener("activate", function (e) {
 });
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
-  // Cache-first (static app); fall back to network, then update cache.
-  e.respondWith(caches.match(e.request).then(function (hit) {
-    return hit || fetch(e.request).then(function (res) {
+  // Network-first, so a new version shows up as soon as there is a connection;
+  // the cache is the offline fallback (and is refreshed on every successful load).
+  e.respondWith(fetch(e.request).then(function (res) {
+    if (res && res.ok) {
       var copy = res.clone();
       caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
-      return res;
-    }).catch(function () { return caches.match("index.html"); });
+    }
+    return res;
+  }).catch(function () {
+    return caches.match(e.request, { ignoreSearch: true }).then(function (hit) {
+      return hit || caches.match("index.html");
+    });
   }));
 });
