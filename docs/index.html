@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Campus Buddy · IITPKD Bus &amp; Calendar</title>
-<meta name="description" content="Next IIT Palakkad Nila ↔ Sahyadri shuttle, the full timetable, the academic calendar and upcoming holidays. Works offline." />
+<title>Campus Buddy · IITPKD Bus, Mess &amp; Calendar</title>
+<meta name="description" content="Next IIT Palakkad Nila ↔ Sahyadri shuttle, the full timetable, the mess menu, the academic calendar and upcoming holidays. Works offline." />
 <meta name="theme-color" content="#FB7A18" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="favicon.png" type="image/png" />
@@ -118,6 +118,23 @@
   .ev .ttl{font-size:.98rem;margin-top:2px}
   .ev .note{color:var(--muted);font-size:.8rem;margin-top:1px}
 
+  /* mess menu */
+  .meal{background:var(--surface);border-radius:18px;padding:14px 16px;margin-bottom:10px}
+  .meal.common{background:var(--surface2)}
+  .meal .lab{color:var(--accent);font-weight:700;font-size:.74rem;letter-spacing:.04em}
+  .meal .txt{font-size:.98rem;margin-top:4px}
+  .meal .ttl{font-weight:700}
+  .meal .note{color:var(--muted);font-size:.82rem}
+  .meal.common .lab{margin-top:10px}
+  .meal.common .txt{font-size:.9rem;margin-top:2px}
+  .meal.soon{text-align:center;padding:40px 20px;margin-top:30px}
+  .meal.soon .big{font-size:2.2rem;margin-bottom:10px}
+  #mess-days{margin:14px 0 10px}
+  #mess-days .tab.today{background:var(--card-tint)}
+  #mess-days .tab.sel{background:var(--accent)}
+  .mess-note{color:var(--dim);font-size:.8rem;margin-top:4px}
+  .nav button{white-space:nowrap}
+
   section{margin-top:30px}
   .row-between{display:flex;align-items:center;gap:10px}
   h2{font-size:1.15rem;margin:0}
@@ -184,7 +201,25 @@
 
   <div class="nav">
     <button data-page-opt="bus">🚌&nbsp; Bus</button>
+    <button data-page-opt="mess">🍽️&nbsp; Mess</button>
     <button data-page-opt="calendar">📅&nbsp; Calendar</button>
+  </div>
+
+  <div id="page-mess" hidden>
+    <div class="nav mess-sel">
+      <button data-mess-opt="nila">Nila Mess</button>
+      <button data-mess-opt="kedaram">Kedaram Mess</button>
+    </div>
+    <div id="mess-nila">
+      <div class="meal" id="mess-provider"></div>
+      <div class="cal-tabs" id="mess-days"></div>
+      <div id="mess-menu"></div>
+    </div>
+    <div id="mess-kedaram" class="meal soon" hidden>
+      <div class="big">🍽️</div>
+      <div class="ttl">Update in progress</div>
+      <div class="note">The Kedaram Mess menu will appear here soon.</div>
+    </div>
   </div>
 
   <div id="page-calendar" hidden>
@@ -268,6 +303,7 @@
 
 <script src="schedule.js"></script>
 <script src="calendar.js"></script>
+<script src="mess.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

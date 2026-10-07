@@ -2,34 +2,55 @@
    Ports the Android app's schedule maths (BusSchedule.kt) and holiday handling
    (AcademicCalendar.kt) to the browser and renders the next-bus cards,
    per-direction timelines, upcoming holidays, full timetable and the academic
-   calendar. Fully offline: all data comes from window.SCHEDULE (schedule.js)
-   and window.CALENDAR (calendar.js). */
+   calendar and the mess menu. Fully offline: all data comes from
+   window.SCHEDULE (schedule.js), window.CALENDAR (calendar.js) and window.MESS (mess.js). */
 (function () {
   "use strict";
 
   // ---- installability (Add to Home Screen / desktop install) ---------------
   var deferredPrompt = null;
   function isStandalone() {
-    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    return ["standalone", "minimal-ui", "fullscreen", "window-controls-overlay"].some(function (mode) {
+      return window.matchMedia("(display-mode: " + mode + ")").matches;
+    }) || window.navigator.standalone === true;
   }
-  window.addEventListener("beforeinstallprompt", function (e) {
-    e.preventDefault();
-    deferredPrompt = e;
-    var bar = document.getElementById("installbar");
-    if (bar && !isStandalone()) bar.hidden = false;
-  });
-  window.addEventListener("appinstalled", function () {
+  // Browsers can keep offering to install (or keep the page open) after the app
+  // is installed, so installation is also remembered here: once installed —
+  // or once opened as an installed app — the bar never comes back.
+  function markInstalled() {
+    try { localStorage.setItem("installed", "1"); } catch (e) {}
     deferredPrompt = null;
     var bar = document.getElementById("installbar");
     if (bar) bar.hidden = true;
+  }
+  function knownInstalled() {
+    return isStandalone() || localStorage.getItem("installed") === "1";
+  }
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    if (knownInstalled()) return;
+    deferredPrompt = e;
+    var show = function () {
+      var bar = document.getElementById("installbar");
+      if (bar && deferredPrompt && !knownInstalled()) bar.hidden = false;
+    };
+    // Where supported, ask the browser whether this web app is already installed.
+    if (navigator.getInstalledRelatedApps) {
+      navigator.getInstalledRelatedApps().then(function (apps) {
+        if (apps && apps.length) markInstalled(); else show();
+      }).catch(show);
+    } else show();
   });
+  window.addEventListener("appinstalled", markInstalled);
   function initInstall() {
+    if (isStandalone()) markInstalled();
     var btn = document.getElementById("install");
     if (!btn) return;
     btn.addEventListener("click", function () {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function () {
+      deferredPrompt.userChoice.then(function (choice) {
+        if (choice && choice.outcome === "accepted") markInstalled();
         deferredPrompt = null;
         document.getElementById("installbar").hidden = true;
       });
@@ -180,6 +201,8 @@
     holidayDate: localStorage.getItem("holidayDate"),
     holidayTheme: localStorage.getItem("holidayTheme") !== "0",
     page: "bus",
+    mess: "nila",
+    messDay: null, // null = Today
     calFilter: "ALL",
     ttDay: null, // null = Today
   };
@@ -247,10 +270,11 @@
     renderTimetable(now, todayType);
     renderHolidaySettings(now, festive);
 
-    // The calendar only changes with the date or the filter, so don't rebuild it every tick.
+    // The calendar and mess menu only change with the date or a tap, so don't rebuild them every tick.
     if (lastRenderedDay !== iso(now)) {
       lastRenderedDay = iso(now);
       renderCalendar(now, false);
+      renderMess(now);
     }
   }
 
@@ -457,15 +481,64 @@
     if (scrollToUpcoming && firstUpcoming) firstUpcoming.scrollIntoView({ block: "start" });
   }
 
+  // ---- mess menu -------------------------------------------------------------
+  var MESS_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  var MESS_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon..Sun
+  var MEALS = [["breakfast", "Breakfast"], ["lunch", "Lunch"], ["tea", "Tea"], ["dinner", "Dinner"]];
+  function renderMess(now) {
+    var M = window.MESS, today = now.getDay();
+    var shown = state.messDay == null ? today : state.messDay;
+    document.querySelectorAll("[data-mess-opt]").forEach(function (b) {
+      b.classList.toggle("sel", b.getAttribute("data-mess-opt") === state.mess);
+    });
+    document.getElementById("mess-nila").hidden = state.mess !== "nila";
+    document.getElementById("mess-kedaram").hidden = state.mess !== "kedaram";
+
+    document.getElementById("mess-provider").innerHTML =
+      '<div class="ttl">' + esc(M.provider) + '</div><div class="note">Mess rate · ' + esc(M.rate) + '</div>';
+
+    var days = document.getElementById("mess-days");
+    days.innerHTML = "";
+    function pill(label, sel, isToday, value) {
+      var b = el("button", "tab" + (sel ? " sel" : "") + (isToday ? " today" : ""), label);
+      b.addEventListener("click", function () { state.messDay = value; renderMess(currentTime()); });
+      days.appendChild(b);
+    }
+    pill("Today", state.messDay == null, false, null);
+    MESS_ORDER.forEach(function (d) {
+      pill(WEEKDAYS[d], state.messDay === d, state.messDay == null && d === today, d);
+    });
+
+    var host = document.getElementById("mess-menu");
+    host.innerHTML = "";
+    var menu = M.days[MESS_DAYS[shown]] || {};
+    MEALS.forEach(function (meal) {
+      var card = el("div", "meal");
+      card.appendChild(el("div", "lab", meal[1].toUpperCase()));
+      card.appendChild(el("div", "txt", esc(menu[meal[0]] || "—")));
+      host.appendChild(card);
+    });
+    var common = el("div", "meal common");
+    common.appendChild(el("div", "ttl", "Every day also includes"));
+    MEALS.forEach(function (meal) {
+      common.appendChild(el("div", "lab", meal[1]));
+      common.appendChild(el("div", "txt", esc(M.common[meal[0]] || "")));
+    });
+    host.appendChild(common);
+    host.appendChild(el("div", "mess-note", esc(M.note)));
+  }
+
   function showPage(page) {
     state.page = page;
     document.getElementById("page-bus").hidden = page !== "bus";
     document.getElementById("page-calendar").hidden = page !== "calendar";
+    document.getElementById("page-mess").hidden = page !== "mess";
     document.querySelectorAll("[data-page-opt]").forEach(function (b) {
       b.classList.toggle("sel", b.getAttribute("data-page-opt") === page);
     });
     if (page === "calendar") renderCalendar(currentTime(), true);
     else window.scrollTo(0, 0);
+    if (page === "mess") renderMess(currentTime());
   }
 
   // ---- wiring ---------------------------------------------------------------
@@ -499,6 +572,12 @@
         renderCalendar(currentTime(), true);
       });
     });
+    document.querySelectorAll("[data-mess-opt]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        state.mess = b.getAttribute("data-mess-opt");
+        renderMess(currentTime());
+      });
+    });
     document.getElementById("hol-all").addEventListener("click", function () {
       state.calFilter = "HOLIDAY";
       showPage("calendar");
@@ -530,7 +609,7 @@
     initControls();
     initInstall();
     render();
-    showPage(location.hash === "#cal" ? "calendar" : "bus"); // #cal deep-links to the calendar
+    showPage({ "#cal": "calendar", "#mess": "mess" }[location.hash] || "bus"); // #cal / #mess deep-link
     setInterval(render, 15000); // keep countdowns live
     document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
