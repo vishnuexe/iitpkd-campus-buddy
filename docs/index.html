@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Campus Buddy · IITPKD Bus</title>
-<meta name="description" content="Next IIT Palakkad Nila ↔ Sahyadri shuttle, with the full timetable. Works offline." />
+<title>Campus Buddy · IITPKD Bus &amp; Calendar</title>
+<meta name="description" content="Next IIT Palakkad Nila ↔ Sahyadri shuttle, the full timetable, the academic calendar and upcoming holidays. Works offline." />
 <meta name="theme-color" content="#FB7A18" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="favicon.png" type="image/png" />
@@ -14,17 +14,20 @@
     --bg:#121317; --surface:#1c1e24; --surface2:#262932;
     --on:#e8e9ed; --muted:#b7bacc; --dim:#8c90a0;
     --accent:#FFB300; --line:#4d4f58; --special1:#7C4DFF; --special2:#EC4899;
+    --special-text:#C9A6FF;
     --card-tint:rgba(255,179,0,.16);
   }
   :root[data-theme="light"]{
     --bg:#f6f7f9; --surface:#fff; --surface2:#e6e8ee;
     --on:#1a1c20; --muted:#565a66; --dim:#6a6e7a; --line:#c4c8d2;
+    --special-text:#7C4DFF;
     --card-tint:rgba(255,179,0,.14);
   }
   @media (prefers-color-scheme: light){
     :root:not([data-theme="dark"]){
       --bg:#f6f7f9; --surface:#fff; --surface2:#e6e8ee;
       --on:#1a1c20; --muted:#565a66; --dim:#6a6e7a; --line:#c4c8d2;
+      --special-text:#7C4DFF;
       --card-tint:rgba(255,179,0,.14);
     }
   }
@@ -54,21 +57,66 @@
   .wc-now{margin-left:auto;color:var(--dim);font-size:.8rem}
   .wc-next{margin:8px 0 4px;color:var(--accent);font-weight:600;font-size:.95rem}
   .wc-next b{font-weight:800}
+  .wc-next.special{color:var(--special-text)}
+  .wc-foot .hol{color:var(--accent)}
   .wc-foot{margin-top:8px;font-size:.78rem}
   .muted{color:var(--dim)}
 
-  .timeline{position:relative;height:62px;margin-top:6px}
+  .timeline{position:relative;height:74px;margin-top:6px}
   .tl-track{position:relative;height:100%}
   .tl-line{position:absolute;left:6%;right:6%;top:38%;height:2px;
     background:linear-gradient(90deg,transparent,var(--line) 12%,var(--line) 88%,transparent)}
   .tl-dot{position:absolute;top:38%;width:7px;height:7px;border-radius:50%;
     background:var(--dim);transform:translate(-50%,-50%)}
   .tl-dot.next{width:12px;height:12px;background:var(--accent)}
+  .tl-dot.special{background:var(--special-text)}
   .tl-lab{position:absolute;top:58%;transform:translateX(-50%);
     font-size:.62rem;color:var(--muted);white-space:nowrap}
   .tl-lab.next{color:var(--accent);font-weight:700}
+  .tl-lab.special{color:var(--special-text)}
+  .tl-tag{position:absolute;top:76%;transform:translateX(-50%);
+    font-size:.56rem;color:var(--special-text);white-space:nowrap}
+  .tl-tag.next{font-weight:700}
   .tl-bus{position:absolute;top:8%;transform:translate(-50%,0) scaleX(-1);font-size:1rem}
   .tl-empty{padding:18px 0;text-align:center}
+
+  /* top-level Bus / Calendar switch */
+  .nav{display:flex;gap:8px;margin-bottom:18px}
+  .nav button{flex:1;padding:10px 8px;border-radius:999px;border:0;background:var(--surface2);
+    color:var(--on);font:inherit;font-size:.9rem;cursor:pointer}
+  .nav button.sel{background:var(--accent);color:#111;font-weight:700}
+
+  /* holiday greeting */
+  .wish{display:flex;align-items:center;gap:14px;background:var(--surface);border-radius:20px;
+    padding:14px 18px;margin-bottom:14px;
+    background-image:linear-gradient(135deg,var(--card-tint),transparent 70%)}
+  .wish .ic{font-size:2rem;line-height:1}
+  .wish .greet{font-size:1.2rem;font-weight:700}
+  .wish .sub{color:var(--muted);font-size:.82rem}
+
+  /* upcoming holidays */
+  .hol-card{background:var(--surface);border-radius:20px;padding:14px 16px}
+  .hol-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+  .hol-row .ic{width:1.5em;text-align:center}
+  .hol-row .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hol-row .dt{color:var(--dim);font-size:.82rem;white-space:nowrap}
+  .hol-row .left{color:var(--accent);font-weight:700;font-size:.9rem;white-space:nowrap;min-width:4.6em;text-align:right}
+  .linkbtn{background:none;border:0;color:var(--accent);font:inherit;font-size:.85rem;font-weight:700;
+    cursor:pointer;padding:6px 0;margin-left:auto}
+
+  /* academic calendar */
+  .cal-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+  .cal-tabs .tab{flex:none;padding:9px 16px}
+  .cal-month{font-size:1rem;margin:18px 0 8px}
+  .ev{display:flex;gap:10px;background:var(--surface);border-radius:18px;padding:13px 16px;margin-bottom:8px}
+  .ev.past{opacity:.45}
+  .ev .mark{width:1.7em;flex:none;text-align:center;font-size:1.1rem;line-height:1.3}
+  .ev .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-top:6px}
+  .ev .when{color:var(--accent);font-weight:700;font-size:.8rem}
+  .ev .badge{margin-left:8px;background:var(--accent);color:#111;border-radius:999px;
+    padding:1px 8px;font-size:.66rem;font-weight:700}
+  .ev .ttl{font-size:.98rem;margin-top:2px}
+  .ev .note{color:var(--muted);font-size:.8rem;margin-top:1px}
 
   section{margin-top:30px}
   .row-between{display:flex;align-items:center;gap:10px}
@@ -134,7 +182,32 @@
     <span class="muted">Add Campus Buddy to your device for one-tap access, offline.</span>
   </div>
 
+  <div class="nav">
+    <button data-page-opt="bus">🚌&nbsp; Bus</button>
+    <button data-page-opt="calendar">📅&nbsp; Calendar</button>
+  </div>
+
+  <div id="page-calendar" hidden>
+    <div class="cal-tabs">
+      <button class="tab" data-cal-opt="ALL">All</button>
+      <button class="tab" data-cal-opt="HOLIDAY">Holidays</button>
+      <button class="tab" data-cal-opt="EXAM">Exams</button>
+      <button class="tab" data-cal-opt="ACADEMIC">Academic</button>
+      <button class="tab" data-cal-opt="VACATION">Vacation</button>
+      <button class="tab" data-cal-opt="MEETING">Meetings</button>
+    </div>
+    <div id="calendar"></div>
+  </div>
+
+  <div id="page-bus">
+  <div id="wish"></div>
+
   <div class="cards" id="cards"></div>
+
+  <section>
+    <div class="row-between"><h2>Upcoming Holidays</h2><button class="linkbtn" id="hol-all">Full calendar ›</button></div>
+    <div class="hol-card" id="holidays" style="margin-top:12px"></div>
+  </section>
 
   <section>
     <div class="row-between"><h2>Full timetable</h2></div>
@@ -170,9 +243,15 @@
     <div class="set-row">
       <span class="lab">Holiday today</span>
       <label class="switch"><input type="checkbox" id="holiday" /></label>
-      <span class="muted" style="font-size:.82rem">Use the reduced Saturday/holiday timetable</span>
+      <span class="muted" style="font-size:.82rem" id="holiday-note"></span>
+    </div>
+    <div class="set-row">
+      <span class="lab">Holiday theme</span>
+      <label class="switch"><input type="checkbox" id="holiday-theme" /></label>
+      <span class="muted" style="font-size:.82rem" id="holiday-theme-note"></span>
     </div>
   </div>
+  </div><!-- /page-bus -->
 
   <footer>
     Timetable effective <span id="eff"></span> ·
@@ -188,6 +267,7 @@
 </dialog>
 
 <script src="schedule.js"></script>
+<script src="calendar.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

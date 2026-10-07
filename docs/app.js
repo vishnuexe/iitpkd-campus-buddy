@@ -1,7 +1,9 @@
 /* IITPKD Campus Buddy — web app logic.
-   Ports the Android app's schedule maths (BusSchedule.kt) to the browser and
-   renders the next-bus cards, per-direction timelines, and full timetable.
-   Fully offline: all data comes from window.SCHEDULE (schedule.js). */
+   Ports the Android app's schedule maths (BusSchedule.kt) and holiday handling
+   (AcademicCalendar.kt) to the browser and renders the next-bus cards,
+   per-direction timelines, upcoming holidays, full timetable and the academic
+   calendar. Fully offline: all data comes from window.SCHEDULE (schedule.js)
+   and window.CALENDAR (calendar.js). */
 (function () {
   "use strict";
 
@@ -40,6 +42,53 @@
     { id: "SAHYADRI_TO_NILA", key: "sahyadriToNila", label: "Sahyadri → Nila" },
   ];
   var DAY_LABEL = { working: "Working day", saturday: "Saturday / holiday", sunday: "Sunday" };
+  var KIND = {
+    PALAKKAD_TOWN: { name: "Palakkad Town", short: "Town" },
+    WISE_PARK: { name: "Wise Park Junction", short: "Wise Park" },
+  };
+  var WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August",
+    "September", "October", "November", "December"];
+
+  // ---- dates ----------------------------------------------------------------
+  // "Now", overridable with ?now=2026-12-25T10:00 to preview a holiday or any other day.
+  var NOW_OVERRIDE = (function () {
+    var m = /[?&]now=([^&]+)/.exec(location.search);
+    var d = m ? new Date(decodeURIComponent(m[1])) : null;
+    return d && !isNaN(d) ? d : null;
+  })();
+  function currentTime() { return NOW_OVERRIDE ? new Date(NOW_OVERRIDE.getTime()) : new Date(); }
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function fromIso(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  /** The service day `d` belongs to: the small hours still count as the previous calendar day. */
+  function serviceDay(d) {
+    var s = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (d.getHours() < CUTOVER_HOUR) s.setDate(s.getDate() - 1);
+    return s;
+  }
+  function daysBetween(fromIsoStr, toIsoStr) {
+    return Math.round((fromIso(toIsoStr) - fromIso(fromIsoStr)) / 86400000);
+  }
+  function shortDate(isoStr, withYear) {
+    var d = fromIso(isoStr);
+    return d.getDate() + " " + MONTHS[d.getMonth()] + (withYear ? " " + d.getFullYear() : "");
+  }
+  function weekdayDate(isoStr) { return WEEKDAYS[fromIso(isoStr).getDay()] + " " + shortDate(isoStr); }
+
+  // ---- holidays -------------------------------------------------------------
+  var HOLIDAYS = window.CALENDAR.holidays;
+  var HOLIDAY_BY_DATE = {};
+  HOLIDAYS.forEach(function (h) { HOLIDAY_BY_DATE[h.date] = h; });
+  function holidayOn(isoStr) { return HOLIDAY_BY_DATE[isoStr] || null; }
+  /** The gazetted holiday being celebrated today (by calendar date), if any. */
+  function todaysHoliday(now) { return holidayOn(iso(now)); }
+  function daysLeftLabel(todayIso, dateIso) {
+    var n = daysBetween(todayIso, dateIso);
+    return n === 0 ? "Today" : n === 1 ? "Tomorrow" : n + " days";
+  }
 
   // ---- schedule maths -------------------------------------------------------
   function serviceMinutes(hhmm) {
@@ -52,13 +101,14 @@
     var min = h * 60 + m;
     return h < CUTOVER_HOUR ? min + 24 * 60 : min;
   }
-  function currentDayType(holiday, d) {
-    if (holiday) return "saturday";
-    var day = d.getDay(); // 0 Sun .. 6 Sat
-    if (d.getHours() < CUTOVER_HOUR) day = (day + 6) % 7; // roll back to previous day
+  /** Weekday gazetted holidays run the Saturday/holiday service automatically;
+      `holidayOverride` is the manual "holiday today" switch for anything else. */
+  function currentDayType(holidayOverride, d) {
+    if (holidayOverride) return "saturday";
+    var sd = serviceDay(d), day = sd.getDay(); // 0 Sun .. 6 Sat
     if (day === 0) return "sunday";
     if (day === 6) return "saturday";
-    return "working";
+    return holidayOn(iso(sd)) ? "saturday" : "working";
   }
   function times(dirKey, dayType) {
     var s = window.SCHEDULE.shuttle[dayType];
@@ -73,8 +123,18 @@
       .map(function (r) { return { time: r.time, special: r }; });
     return reg.concat(sp).sort(function (a, b) { return serviceMinutes(a.time) - serviceMinutes(b.time); });
   }
+  /** What a direction's timeline plots: the distinct departure times in order, plus
+      which of them are "going outside" trips (Palakkad Town / Wise Park). */
+  function timelineStops(dir, dayType) {
+    var list = [], special = {};
+    mergedTimeline(dir, dayType).forEach(function (e) {
+      if (list[list.length - 1] !== e.time) list.push(e.time);
+      if (e.special) special[e.time] = e.special.kind;
+    });
+    return { times: list, specials: special };
+  }
   function nextBusInfo(list, d, following) {
-    following = following || 4;
+    following = following || 3; // previous + next + 3 more = 5 times on the timeline
     if (!list.length) return { previous: null, next: null, following: [], mins: null, frac: 0, ended: true };
     var nowMin = nowServiceMinutes(d);
     var mins = list.map(serviceMinutes);
@@ -106,23 +166,43 @@
     var h = Math.floor(mins / 60), m = mins % 60;
     return m === 0 ? "in " + h + "h" : "in " + h + "h " + m + "m";
   }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+  }
 
   // ---- state ----------------------------------------------------------------
+  // The manual "holiday today" switch only applies to the service day it was
+  // turned on for, so it is stored as that day's date rather than a flag.
+  localStorage.removeItem("holiday"); // the old never-expiring flag
   var state = {
     theme: localStorage.getItem("theme") || "system",
     accent: localStorage.getItem("accent") || "amber",
-    holiday: localStorage.getItem("holiday") === "1",
+    holidayDate: localStorage.getItem("holidayDate"),
+    holidayTheme: localStorage.getItem("holidayTheme") !== "0",
+    page: "bus",
+    calFilter: "ALL",
     ttDay: null, // null = Today
   };
   var ACCENTS = {
     amber: "#FFB300", teal: "#26C6DA", violet: "#AB47BC", rose: "#EF5350", emerald: "#66BB6A",
   };
+  var CATEGORY_COLOR = { HOLIDAY: "#EF5350", EXAM: "#FFB300", ACADEMIC: null, VACATION: "#66BB6A", MEETING: "#42A5F5" };
 
+  function holidayOverrideOn(now) { return state.holidayDate === iso(serviceDay(now)); }
+
+  function hexToRgba(hex, alpha) {
+    var n = parseInt(hex.slice(1), 16);
+    return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + alpha + ")";
+  }
   function applyTheme() {
     var root = document.documentElement;
     if (state.theme === "system") root.removeAttribute("data-theme");
     else root.setAttribute("data-theme", state.theme);
-    root.style.setProperty("--accent", ACCENTS[state.accent] || ACCENTS.amber);
+    // On a gazetted holiday the page wears the holiday's color, unless that is switched off.
+    var festive = todaysHoliday(currentTime());
+    var accent = (festive && state.holidayTheme) ? festive.color : (ACCENTS[state.accent] || ACCENTS.amber);
+    root.style.setProperty("--accent", accent);
+    root.style.setProperty("--card-tint", hexToRgba(accent, 0.16));
     document.querySelectorAll("[data-theme-opt]").forEach(function (b) {
       b.classList.toggle("sel", b.getAttribute("data-theme-opt") === state.theme);
     });
@@ -140,47 +220,82 @@
   }
   var BUS_SVG = '<svg viewBox="0 0 24 24" class="busico" aria-hidden="true"><path fill="currentColor" d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4S4 2.5 4 6v10zM7.5 17A1.5 1.5 0 1 1 9 15.5 1.5 1.5 0 0 1 7.5 17zm9 0a1.5 1.5 0 1 1 1.5-1.5 1.5 1.5 0 0 1-1.5 1.5zM18 11H6V6h12z"/></svg>';
 
+  var lastRenderedDay = null;
+
   function render() {
-    var now = new Date();
-    var todayType = currentDayType(state.holiday, now);
+    var now = currentTime();
+    // Yesterday's manual holiday switch has run out.
+    if (state.holidayDate && !holidayOverrideOn(now)) {
+      state.holidayDate = null;
+      localStorage.removeItem("holidayDate");
+    }
+    var todayType = currentDayType(holidayOverrideOn(now), now);
+    var festive = todaysHoliday(now);
+    applyTheme();
     document.getElementById("clock").textContent = timeLabel(pad(now.getHours()) + ":" + pad(now.getMinutes()));
+
+    renderWish(festive);
 
     // direction cards (timeline-widget style)
     var cards = document.getElementById("cards");
     cards.innerHTML = "";
     DIRS.forEach(function (dir) {
-      cards.appendChild(directionCard(dir, todayType, now));
+      cards.appendChild(directionCard(dir, todayType, now, festive));
     });
 
-    // full timetable
+    renderHolidays(now);
     renderTimetable(now, todayType);
+    renderHolidaySettings(now, festive);
+
+    // The calendar only changes with the date or the filter, so don't rebuild it every tick.
+    if (lastRenderedDay !== iso(now)) {
+      lastRenderedDay = iso(now);
+      renderCalendar(now, false);
+    }
   }
 
-  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function renderWish(festive) {
+    var host = document.getElementById("wish");
+    host.innerHTML = "";
+    if (!festive) return;
+    var day = fromIso(festive.date).getDay();
+    var card = el("div", "wish");
+    card.appendChild(el("div", "ic", festive.icon));
+    var text = el("div");
+    text.appendChild(el("div", "greet", esc(festive.greeting)));
+    text.appendChild(el("div", "sub", "Today is " + esc(festive.name) +
+      (day !== 0 && day !== 6 ? " — buses follow the holiday timetable." : ".")));
+    card.appendChild(text);
+    host.appendChild(card);
+  }
 
-  function directionCard(dir, dayType, now) {
-    var info = nextBusInfo(times(dir.key, dayType), now);
+  function directionCard(dir, dayType, now, festive) {
+    var stops = timelineStops(dir, dayType);
+    var info = nextBusInfo(stops.times, now);
+    var nextKind = info.next ? stops.specials[info.next] : null;
     var card = el("div", "wcard");
     var head = el("div", "wc-head");
     head.appendChild(el("span", "wc-dir", dir.label));
     head.appendChild(el("span", "wc-now", timeLabel(pad(now.getHours()) + ":" + pad(now.getMinutes()))));
     card.appendChild(head);
 
-    var next = el("div", "wc-next");
+    var next = el("div", "wc-next" + (nextKind ? " special" : ""));
     if (info.next == null) next.innerHTML = '<span class="muted">Service over for today' +
       (info.previous ? ' · last bus ' + timeLabel(info.previous) : '') + '</span>';
-    else next.innerHTML = 'Next: <b>' + timeLabel(info.next) + '</b> · ' + countdown(info.mins);
+    else next.innerHTML = 'Next: <b>' + timeLabel(info.next) + '</b>' +
+      (nextKind ? ' · ' + KIND[nextKind].short + ' bus' : '') + ' · ' + countdown(info.mins);
     card.appendChild(next);
 
-    card.appendChild(timelineRow(info));
+    card.appendChild(timelineRow(info, stops.specials));
 
     var foot = el("div", "wc-foot");
-    foot.appendChild(el("span", "muted", DAY_LABEL[dayType]));
+    if (festive) foot.appendChild(el("span", "hol", festive.icon + " " + esc(festive.name)));
+    else foot.appendChild(el("span", "muted", DAY_LABEL[dayType]));
     card.appendChild(foot);
     return card;
   }
 
-  function timelineRow(info) {
+  function timelineRow(info, specialKinds) {
     var stops = [];
     if (info.previous) stops.push(info.previous);
     if (info.next) stops.push(info.next);
@@ -197,12 +312,20 @@
     var nextIdx = info.next == null ? -1 : (info.previous ? 1 : 0);
     stops.forEach(function (t, i) {
       var x = xp(i);
-      var dot = el("div", "tl-dot" + (i === nextIdx ? " next" : ""));
+      // "Going outside" trips: same dot and label, in the special color, with a destination tag.
+      var kind = specialKinds[t];
+      var cls = (i === nextIdx ? " next" : "") + (kind ? " special" : "");
+      var dot = el("div", "tl-dot" + cls);
       dot.style.left = x + "%";
       track.appendChild(dot);
-      var lab = el("div", "tl-lab" + (i === nextIdx ? " next" : ""), timeLabel(t));
+      var lab = el("div", "tl-lab" + cls, timeLabel(t));
       lab.style.left = x + "%";
       track.appendChild(lab);
+      if (kind) {
+        var tag = el("div", "tl-tag" + (i === nextIdx ? " next" : ""), KIND[kind].short);
+        tag.style.left = x + "%";
+        track.appendChild(tag);
+      }
     });
     // bus marker
     if (nextIdx !== -1) {
@@ -215,6 +338,25 @@
     }
     wrap.appendChild(track);
     return wrap;
+  }
+
+  function renderHolidays(now) {
+    var todayIso = iso(now);
+    var host = document.getElementById("holidays");
+    host.innerHTML = "";
+    var upcoming = HOLIDAYS.filter(function (h) { return h.date >= todayIso; }).slice(0, 5);
+    if (!upcoming.length) {
+      host.appendChild(el("div", "muted", "None left in this year's list"));
+      return;
+    }
+    upcoming.forEach(function (h) {
+      var row = el("div", "hol-row");
+      row.appendChild(el("span", "ic", h.icon));
+      row.appendChild(el("span", "nm", esc(h.shortName)));
+      row.appendChild(el("span", "dt", weekdayDate(h.date)));
+      row.appendChild(el("span", "left", daysLeftLabel(todayIso, h.date)));
+      host.appendChild(row);
+    });
   }
 
   function renderTimetable(now, todayType) {
@@ -234,7 +376,7 @@
         if (entry.special) chip.innerHTML = BUS_SVG;
         chip.appendChild(document.createTextNode(timeLabel(entry.time)));
         if (entry.special) {
-          chip.title = entry.special.kind === "PALAKKAD_TOWN" ? "Palakkad Town" : "Wise Park Junction";
+          chip.title = KIND[entry.special.kind].name;
           chip.addEventListener("click", function () { showRoute(entry.special); });
         }
         row.appendChild(chip);
@@ -243,11 +385,87 @@
     });
   }
 
+  function renderHolidaySettings(now, festive) {
+    // On a weekday gazetted holiday the reduced timetable already applies, so
+    // the switch just reports that instead of being a choice.
+    var sd = serviceDay(now), gazetted = holidayOn(iso(sd));
+    var auto = gazetted && sd.getDay() !== 0 && sd.getDay() !== 6;
+    var hol = document.getElementById("holiday");
+    hol.checked = auto || holidayOverrideOn(now);
+    hol.disabled = !!auto;
+    document.getElementById("holiday-note").textContent = auto
+      ? gazetted.name + " — the Saturday/holiday timetable applies automatically"
+      : "Use the reduced Saturday/holiday timetable · resets tomorrow";
+
+    document.getElementById("holiday-theme").checked = state.holidayTheme;
+    document.getElementById("holiday-theme-note").textContent = (festive && state.holidayTheme)
+      ? "Showing " + festive.shortName + " colours today · turn off to keep your own accent"
+      : "Use a holiday's colour on gazetted holidays";
+  }
+
   function showRoute(r) {
-    var kind = r.kind === "PALAKKAD_TOWN" ? "Palakkad Town" : "Wise Park Junction";
-    document.getElementById("dlg-title").textContent = kind + " · " + r.label;
+    document.getElementById("dlg-title").textContent = KIND[r.kind].name + " · " + r.label;
     document.getElementById("dlg-body").textContent = r.summary || "";
     document.getElementById("dlg").showModal();
+  }
+
+  // ---- academic calendar ----------------------------------------------------
+  function eventDateLabel(e) {
+    if (e.start === e.end) return weekdayDate(e.start).replace(" ", ", ");
+    // Spell out the years only for the few ranges that straddle New Year.
+    var years = e.start.slice(0, 4) !== e.end.slice(0, 4);
+    return shortDate(e.start, years) + " – " + shortDate(e.end, years);
+  }
+  function renderCalendar(now, scrollToUpcoming) {
+    var todayIso = iso(now);
+    document.querySelectorAll("[data-cal-opt]").forEach(function (b) {
+      b.classList.toggle("sel", b.getAttribute("data-cal-opt") === state.calFilter);
+    });
+    var host = document.getElementById("calendar");
+    host.innerHTML = "";
+    var month = null, firstUpcoming = null;
+    window.CALENDAR.events.forEach(function (e) {
+      if (state.calFilter !== "ALL" && e.category !== state.calFilter) return;
+      var m = e.start.slice(0, 7);
+      var heading = null;
+      if (m !== month) {
+        month = m;
+        heading = el("h3", "cal-month", MONTHS_LONG[+m.slice(5) - 1] + " " + m.slice(0, 4));
+        host.appendChild(heading);
+      }
+      var past = e.end < todayIso, ongoing = !past && e.start <= todayIso;
+      var row = el("div", "ev" + (past ? " past" : ""));
+      var mark = el("div", "mark");
+      if (e.icon) mark.textContent = e.icon;
+      else {
+        var dot = el("span", "dot");
+        dot.style.background = CATEGORY_COLOR[e.category] || "var(--accent)";
+        mark.appendChild(dot);
+      }
+      row.appendChild(mark);
+      var body = el("div");
+      var when = el("div", "when", esc(eventDateLabel(e)));
+      if (ongoing) when.appendChild(el("span", "badge", e.start === e.end ? "TODAY" : "ONGOING"));
+      body.appendChild(when);
+      body.appendChild(el("div", "ttl", esc(e.title)));
+      if (e.note) body.appendChild(el("div", "note", esc(e.note)));
+      row.appendChild(body);
+      host.appendChild(row);
+      // Open on what's coming up rather than at January (keeping its month heading in view).
+      if (!past && !firstUpcoming) firstUpcoming = heading || row;
+    });
+    if (scrollToUpcoming && firstUpcoming) firstUpcoming.scrollIntoView({ block: "start" });
+  }
+
+  function showPage(page) {
+    state.page = page;
+    document.getElementById("page-bus").hidden = page !== "bus";
+    document.getElementById("page-calendar").hidden = page !== "calendar";
+    document.querySelectorAll("[data-page-opt]").forEach(function (b) {
+      b.classList.toggle("sel", b.getAttribute("data-page-opt") === page);
+    });
+    if (page === "calendar") renderCalendar(currentTime(), true);
+    else window.scrollTo(0, 0);
   }
 
   // ---- wiring ---------------------------------------------------------------
@@ -272,10 +490,35 @@
         render();
       });
     });
+    document.querySelectorAll("[data-page-opt]").forEach(function (b) {
+      b.addEventListener("click", function () { showPage(b.getAttribute("data-page-opt")); });
+    });
+    document.querySelectorAll("[data-cal-opt]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        state.calFilter = b.getAttribute("data-cal-opt");
+        renderCalendar(currentTime(), true);
+      });
+    });
+    document.getElementById("hol-all").addEventListener("click", function () {
+      state.calFilter = "HOLIDAY";
+      showPage("calendar");
+    });
     var hol = document.getElementById("holiday");
-    hol.checked = state.holiday;
     hol.addEventListener("change", function () {
-      state.holiday = hol.checked; localStorage.setItem("holiday", hol.checked ? "1" : "0"); render();
+      if (hol.checked) {
+        state.holidayDate = iso(serviceDay(currentTime()));
+        localStorage.setItem("holidayDate", state.holidayDate);
+      } else {
+        state.holidayDate = null;
+        localStorage.removeItem("holidayDate");
+      }
+      render();
+    });
+    var holTheme = document.getElementById("holiday-theme");
+    holTheme.addEventListener("change", function () {
+      state.holidayTheme = holTheme.checked;
+      localStorage.setItem("holidayTheme", holTheme.checked ? "1" : "0");
+      render();
     });
     document.getElementById("dlg-close").addEventListener("click", function () {
       document.getElementById("dlg").close();
@@ -284,10 +527,10 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    applyTheme();
     initControls();
     initInstall();
     render();
+    showPage(location.hash === "#cal" ? "calendar" : "bus"); // #cal deep-links to the calendar
     setInterval(render, 15000); // keep countdowns live
     document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});

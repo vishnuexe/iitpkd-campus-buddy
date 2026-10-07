@@ -1,7 +1,7 @@
 {
   "name": "IITPKD Campus Buddy",
   "short_name": "Campus Bus",
-  "description": "Next IIT Palakkad Nila ↔ Sahyadri shuttle, with the full timetable.",
+  "description": "Next IIT Palakkad Nila ↔ Sahyadri shuttle, the full timetable, the academic calendar and upcoming holidays.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

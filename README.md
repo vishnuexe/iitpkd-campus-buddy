@@ -11,7 +11,7 @@ No install needed — open the web app in any browser:
 
 ### 👉 **https://vishnuexe.github.io/iitpkd-campus-buddy/**
 
-Same next-bus cards, live timelines and full timetable. On desktop Chrome/Edge, click the **Install** icon in the address bar to pin it as an app; on phones use **Add to Home Screen**. It works offline once opened.
+Same next-bus cards, live timelines and full timetable, plus the academic calendar, upcoming holidays and holiday greetings. On desktop Chrome/Edge, click the **Install** icon in the address bar to pin it as an app; on phones use **Add to Home Screen**. It works offline once opened.
 
 ## 📸 Screenshots
 
