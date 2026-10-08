@@ -530,11 +530,130 @@
     host.appendChild(el("div", "mess-note", esc(M.note)));
   }
 
+  // ---- campus map -------------------------------------------------------------
+  // Drawn as SVG from window.CAMPUS_MAP (map.js): coordinates are metres from the
+  // map's north-west corner, and pan/zoom just moves the SVG viewBox.
+  var mapState = null;
+  function initMap() {
+    var M = window.CAMPUS_MAP, svg = document.getElementById("map");
+    if (mapState) { fitMapView(mapState.view); return; }
+    var NS = "http://www.w3.org/2000/svg";
+    function node(tag, attrs) {
+      var n = document.createElementNS(NS, tag);
+      for (var k in attrs) n.setAttribute(k, attrs[k]);
+      return n;
+    }
+    function points(p) {
+      var out = [];
+      for (var i = 0; i + 1 < p.length; i += 2) out.push(p[i] + "," + p[i + 1]);
+      return out.join(" ");
+    }
+    M.areas.forEach(function (a) { svg.appendChild(node("polygon", { "class": "a-" + a.k, points: points(a.p) })); });
+    M.lines.forEach(function (l) { svg.appendChild(node("polyline", { "class": "l l-" + l.k, points: points(l.p) })); });
+    var texts = M.labels.map(function (l) {
+      var t = node("text", { "class": "t-" + l.k, x: l.x, y: l.y });
+      t.textContent = l.t;
+      svg.appendChild(t);
+      return { el: t, k: l.k };
+    });
+    mapState = { box: null, view: M.views[0], texts: texts };
+
+    var pills = document.getElementById("map-views");
+    M.views.forEach(function (v) {
+      var b = el("button", "tab", v.name);
+      b.addEventListener("click", function () { fitMapView(v); });
+      pills.appendChild(b);
+      v.pill = b;
+    });
+
+    // Pointer gestures: one pointer drags, two pinch-zoom; wheel and +/- also zoom.
+    var pointers = {}, lastDist = 0;
+    function metresPerPx() { return mapState.box[2] / svg.clientWidth; }
+    function zoomAt(factor, cx, cy) {
+      var b = mapState.box, r = svg.getBoundingClientRect();
+      var fx = (cx - r.left) / r.width, fy = (cy - r.top) / r.height;
+      var w = Math.min(Math.max(b[2] / factor, 60), M.w * 1.3), h = w * b[3] / b[2];
+      setMapBox([b[0] + (b[2] - w) * fx, b[1] + (b[3] - h) * fy, w, h], null);
+    }
+    svg.addEventListener("pointerdown", function (e) {
+      svg.setPointerCapture(e.pointerId);
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+      lastDist = 0;
+    });
+    svg.addEventListener("pointermove", function (e) {
+      var p = pointers[e.pointerId];
+      if (!p) return;
+      var ids = Object.keys(pointers);
+      if (ids.length === 1) {
+        var k = metresPerPx(), b = mapState.box;
+        setMapBox([b[0] - (e.clientX - p.x) * k, b[1] - (e.clientY - p.y) * k, b[2], b[3]], null);
+      }
+      p.x = e.clientX; p.y = e.clientY;
+      if (ids.length === 2) {
+        var a = pointers[ids[0]], c = pointers[ids[1]];
+        var dist = Math.hypot(a.x - c.x, a.y - c.y);
+        if (lastDist) zoomAt(dist / lastDist, (a.x + c.x) / 2, (a.y + c.y) / 2);
+        lastDist = dist;
+      }
+    });
+    function release(e) { delete pointers[e.pointerId]; lastDist = 0; }
+    svg.addEventListener("pointerup", release);
+    svg.addEventListener("pointercancel", release);
+    svg.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.clientX, e.clientY);
+    }, { passive: false });
+    function centreZoom(f) {
+      var r = svg.getBoundingClientRect();
+      zoomAt(f, r.left + r.width / 2, r.top + r.height / 2);
+    }
+    document.getElementById("map-in").addEventListener("click", function () { centreZoom(1.5); });
+    document.getElementById("map-out").addEventListener("click", function () { centreZoom(1 / 1.5); });
+    window.addEventListener("resize", function () { if (state.page === "map" && mapState.view) fitMapView(mapState.view); });
+
+    fitMapView(M.views[0]);
+  }
+  /** Shows `box` = [x, y, width, height] in map metres; `view` is the preset it came from, if any. */
+  function setMapBox(box, view) {
+    var M = window.CAMPUS_MAP, svg = document.getElementById("map");
+    mapState.box = box;
+    mapState.view = view;
+    svg.setAttribute("viewBox", box.join(" "));
+    M.views.forEach(function (v) { if (v.pill) v.pill.classList.toggle("sel", v === view); });
+    // Keep label text a constant size on screen; small names appear only once zoomed in.
+    var k = box[2] / (svg.clientWidth || 1); // metres per px
+    // Main names first; a name that would run into one already shown waits for more zoom.
+    var placed = [], rank = { main: 0, campus: 1, minor: 2 };
+    mapState.texts.slice().sort(function (p, q) { return rank[p.k] - rank[q.k]; }).forEach(function (t) {
+      var px = t.k === "minor" ? 11 : t.k === "campus" ? 13 : 12;
+      t.el.setAttribute("font-size", px * k);
+      t.el.setAttribute("stroke-width", 3 * k);
+      var hide = (t.k === "minor" && k > 1.6) || (t.k === "campus" && k < 1.6);
+      if (!hide) {
+        var half = t.el.textContent.length * px * 0.31 * k, x = +t.el.getAttribute("x"), y = +t.el.getAttribute("y");
+        var box = [x - half, y - px * k, x + half, y + px * k * 0.3];
+        hide = placed.some(function (o) { return box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]; });
+        if (!hide) placed.push(box);
+      }
+      t.el.style.display = hide ? "none" : "";
+    });
+  }
+  function fitMapView(view) {
+    var svg = document.getElementById("map"), r = view.r;
+    // Grow the preset rectangle to the box's shape so it is centred, not stretched.
+    var w = r[2] - r[0], h = r[3] - r[1], aspect = (svg.clientWidth || 1) / (svg.clientHeight || 1);
+    if (w / h < aspect) { var nw = h * aspect; r = [r[0] - (nw - w) / 2, r[1], 0, 0]; w = nw; }
+    else { var nh = w / aspect; r = [r[0], r[1] - (nh - h) / 2, 0, 0]; h = nh; }
+    setMapBox([r[0], r[1], w, h], view);
+  }
+
   function showPage(page) {
     state.page = page;
     document.getElementById("page-bus").hidden = page !== "bus";
     document.getElementById("page-calendar").hidden = page !== "calendar";
     document.getElementById("page-mess").hidden = page !== "mess";
+    document.getElementById("page-map").hidden = page !== "map";
+    if (page === "map") initMap();
     document.querySelectorAll("[data-page-opt]").forEach(function (b) {
       b.classList.toggle("sel", b.getAttribute("data-page-opt") === page);
     });
@@ -611,7 +730,7 @@
     initControls();
     initInstall();
     render();
-    showPage({ "#cal": "calendar", "#mess": "mess" }[location.hash] || "bus"); // #cal / #mess deep-link
+    showPage({ "#cal": "calendar", "#mess": "mess", "#campusmap": "map" }[location.hash] || "bus"); // deep links
     setInterval(render, 15000); // keep countdowns live
     document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
     if ("serviceWorker" in navigator) {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Campus Buddy · IITPKD Bus, Mess &amp; Calendar</title>
+<title>Campus Buddy · IITPKD Bus, Mess, Calendar &amp; Map</title>
 <meta name="description" content="Next IIT Palakkad Nila ↔ Sahyadri shuttle, the full timetable, the mess menu, the academic calendar and upcoming holidays. Works offline." />
 <meta name="theme-color" content="#FB7A18" />
 <link rel="manifest" href="manifest.webmanifest" />
@@ -86,8 +86,9 @@
 
   /* top-level Bus / Calendar switch */
   .nav{display:flex;gap:8px;margin-bottom:18px}
-  .nav button{flex:1;padding:10px 8px;border-radius:999px;border:0;background:var(--surface2);
-    color:var(--on);font:inherit;font-size:.9rem;cursor:pointer}
+  .nav{gap:6px}
+  .nav button{flex:1;min-width:0;padding:10px 2px;overflow:hidden;border-radius:999px;border:0;background:var(--surface2);
+    color:var(--on);font:inherit;font-size:.8rem;cursor:pointer}
   .nav button.sel{background:var(--accent);color:#111;font-weight:700}
 
   /* holiday greeting */
@@ -138,6 +139,32 @@
   #mess-days .tab.sel{background:var(--accent)}
   .mess-note{color:var(--dim);font-size:.8rem;margin-top:4px}
   .nav button{white-space:nowrap}
+
+  /* campus map */
+  :root{--map-ground:#15171c;--map-campus:#22252d;--map-block:#2b2f39;--map-water:#2a5d8a;
+    --map-pitch:#2f6b3a;--map-parking:#3a3d47;--map-road:#6a6d78;--map-major:#9a9da8;--map-rail:#8a5a5a}
+  :root[data-theme="light"]{--map-ground:#e9ebf0;--map-campus:#f8f9fb;--map-block:#eceef3;--map-water:#9cc7ea;
+    --map-pitch:#a6d8a8;--map-parking:#d9dce4;--map-road:#b4b8c4;--map-major:#8a8e9c;--map-rail:#c08a8a}
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){--map-ground:#e9ebf0;--map-campus:#f8f9fb;--map-block:#eceef3;--map-water:#9cc7ea;
+      --map-pitch:#a6d8a8;--map-parking:#d9dce4;--map-road:#b4b8c4;--map-major:#8a8e9c;--map-rail:#c08a8a}
+  }
+  .mapbox{position:relative;margin-top:12px;border-radius:20px;overflow:hidden;background:var(--map-ground);
+    height:min(70vh,640px)}
+  #map{display:block;width:100%;height:100%;touch-action:none;cursor:grab;user-select:none}
+  #map .a-campus{fill:var(--map-campus)} #map .a-block{fill:var(--map-block)} #map .a-water{fill:var(--map-water)}
+  #map .a-pitch{fill:var(--map-pitch)} #map .a-parking{fill:var(--map-parking)} #map .a-building{fill:var(--accent)}
+  #map .l{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+  #map .l-major{stroke:var(--map-major);stroke-width:3} #map .l-road{stroke:var(--map-road);stroke-width:2}
+  #map .l-path{stroke:var(--map-road);stroke-width:1;opacity:.6} #map .l-stream{stroke:var(--map-water);stroke-width:1.2}
+  #map .l-rail{stroke:var(--map-rail);stroke-width:2}
+  #map text{text-anchor:middle;paint-order:stroke;stroke:var(--map-ground);stroke-linejoin:round;
+    font-family:inherit;pointer-events:none}
+  #map .t-main{fill:var(--on);font-weight:700} #map .t-minor{fill:var(--muted)} #map .t-campus{fill:var(--dim);font-weight:700}
+  .map-zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+  .map-zoom button{width:36px;height:36px;border-radius:50%;border:0;background:var(--surface);color:var(--on);
+    font-size:1.2rem;cursor:pointer}
+  .map-credit{position:absolute;right:10px;bottom:6px;font-size:.68rem;color:var(--dim);text-decoration:none}
 
   section{margin-top:30px}
   .row-between{display:flex;align-items:center;gap:10px}
@@ -208,6 +235,17 @@
     <button data-page-opt="bus">🚌&nbsp; Bus</button>
     <button data-page-opt="mess">🍽️&nbsp; Mess</button>
     <button data-page-opt="calendar">📅&nbsp; Calendar</button>
+    <button data-page-opt="map">🗺️&nbsp; Map</button>
+  </div>
+
+  <div id="page-map" hidden>
+    <div class="cal-tabs" id="map-views"></div>
+    <div class="mapbox">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Campus map"></svg>
+      <div class="map-zoom"><button id="map-in" aria-label="Zoom in">+</button><button id="map-out" aria-label="Zoom out">−</button></div>
+      <a class="map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+    </div>
+    <p class="mess-note">Drag to move, pinch or scroll to zoom. Only places named on OpenStreetMap are labelled.</p>
   </div>
 
   <div id="page-mess" hidden>
@@ -309,6 +347,7 @@
 <script src="schedule.js"></script>
 <script src="calendar.js"></script>
 <script src="mess.js"></script>
+<script src="map.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 /* Offline cache for Campus Buddy. Bump CACHE when the asset list changes. */
-var CACHE = "campus-buddy-v5";
+var CACHE = "campus-buddy-v6";
 var ASSETS = [
-  ".", "index.html", "app.js", "schedule.js", "calendar.js", "mess.js", "manifest.webmanifest",
+  ".", "index.html", "app.js", "schedule.js", "calendar.js", "mess.js", "map.js", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png", "favicon.png",
 ];
 self.addEventListener("install", function (e) {
